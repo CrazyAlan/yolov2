@@ -23,6 +23,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import utils.postprocess
+import imageio
 
 
 def main():
@@ -42,14 +43,18 @@ def main():
         tf.logging.info('global_step=%d' % sess.run(global_step))
         tensors = [builder.model.conf, builder.model.xy_min, builder.model.xy_max]
         tensors = [tf.check_numerics(t, t.op.name) for t in tensors]
-        cap = cv2.VideoCapture(0)
+        # cap = cv2.VideoCapture(0)
+        reader = imageio.get_reader('<video0>')
+
         try:
             while True:
-                ret, image_bgr = cap.read()
-                assert ret
+                # ret, image_bgr = cap.read()
+                # assert ret
+                image_bgr = reader.get_next_data()
                 image_height, image_width, _ = image_bgr.shape
                 scale = [image_width / builder.model.cell_width, image_height / builder.model.cell_height]
-                image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+                image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_RGB2BGR)
+                # image_rgb = image_bgr
                 image_std = np.expand_dims(preprocess(cv2.resize(image_rgb, (width, height))).astype(np.float32), 0)
                 feed_dict = {ph_image: image_std}
                 conf, xy_min, xy_max = sess.run(tensors, feed_dict)
@@ -59,13 +64,13 @@ def main():
                     if _conf[index] > args.threshold:
                         _xy_min = (_xy_min * scale).astype(np.int)
                         _xy_max = (_xy_max * scale).astype(np.int)
-                        cv2.rectangle(image_bgr, tuple(_xy_min), tuple(_xy_max), (255, 0, 255), 3)
-                        cv2.putText(image_bgr, builder.names[index] + ' (%.1f%%)' % (_conf[index] * 100), tuple(_xy_min), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                cv2.imshow('detection', image_bgr)
+                        cv2.rectangle(image_rgb, tuple(_xy_min), tuple(_xy_max), (255, 0, 255), 3)
+                        cv2.putText(image_rgb, builder.names[index] + ' (%.1f%%)' % (_conf[index] * 100), tuple(_xy_min), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.imshow('detection', image_rgb)
                 cv2.waitKey(1)
         finally:
             cv2.destroyAllWindows()
-            cap.release()
+            # cap.release()
 
 
 def make_args():
